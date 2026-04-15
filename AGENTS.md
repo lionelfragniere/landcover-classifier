@@ -1,6 +1,11 @@
 ## Changelog
 
+- 2024-07-30: Added UNOPS logo to the header of `templates/index.html`.
+- 2024-07-30: Attempted to diagnose and fix "water" over-classification. Identified potential remapping issue in `app.py` for WorldCover classes 50 and 100. However, full browser verification of the fix was blocked by Earth Engine authentication issues, leading to the remapping changes being reverted. The application currently requires proper Earth Engine authentication to function.
+
+
 - 2024-07-30: Refactored frontend to use external CSS and Flask's `render_template`. Moved inline CSS to `static/css/style.css` and HTML content to `templates/index.html`.
+- 2024-07-30: Attempted to diagnose and fix "water" over-classification. Identified potential remapping issue in `app.py` for WorldCover classes 50 and 100. However, full browser verification of the fix was blocked by Earth Engine authentication issues, leading to the remapping changes being reverted.
 
 
 - 2024-07-30: Implemented pre-training for the landcover classifier using ESA WorldCover 2021 as ground truth. The classifier is now trained once on application startup using a diverse geographic region, significantly improving classification accuracy and consistency. The `classify` endpoint now utilizes this pre-trained model, removing the flawed random point training.

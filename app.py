@@ -72,13 +72,13 @@ def _train_classifier():
         20, 1,   # Shrubland -> Forest
         30, 1,   # Grassland -> Forest
         40, 2,   # Cropland -> Agriculture
-        50, 1,   # Vegetated aquatic or regularly flooded -> Forest (changed from Water)
+        50, 0,   # Vegetated aquatic or regularly flooded -> Water
         60, 4,   # Moss and lichen -> Barren
         70, 4,   # Bare / sparse vegetation -> Barren
         80, 3,   # Built-up -> Urban
         90, 4,   # Snow and ice -> Barren
         95, 0,   # Permanent water bodies -> Water
-        100, 1   # Herbaceous wetland -> Forest (changed from Water)
+        100, 0   # Herbaceous wetland -> Water
     ]
     
     # Apply the remapping to the WorldCover band
