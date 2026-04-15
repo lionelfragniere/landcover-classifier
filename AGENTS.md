@@ -1,5 +1,12 @@
 ## Changelog
 
+- 2024-07-30: Implemented UNOPS design system compliance (light theme, fonts, colors, button/card styles, logo path) and externalized Earth Engine Project ID to an environment variable. Deployment to Cloud Run was successful, but classification functionality still requires proper Earth Engine authentication.
+
+- 2024-07-30: Attempted to redeploy the landcover classifier application to Google Cloud Run. The deployment was successful to `us-central1` (URL: `https://landcover-classifier-700845207803.us-central1.run.app/`), but the requested region was `europe-west1`. The `gcp_action` tool does not support specifying the deployment region, preventing deployment to the exact requested URL (`https://landcover-classifier-700845207803.europe-west1.run.app/`).
+
+- 2024-07-30: Implemented UNOPS Design System compliance fixes: set light theme as default, updated header background to Midnight blue, applied 'Inter Tight' font to headings, and corrected the UNOPS logo path while adding a placeholder image. The Earth Engine authentication issue remains a known external dependency.
+
+
 - 2024-07-30: Added UNOPS logo to the header of `templates/index.html`.
 - 2024-07-30: Attempted to diagnose and fix "water" over-classification. Identified potential remapping issue in `app.py` for WorldCover classes 50 and 100. However, full browser verification of the fix was blocked by Earth Engine authentication issues, leading to the remapping changes being reverted. The application currently requires proper Earth Engine authentication to function.
 

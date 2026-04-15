@@ -12,7 +12,8 @@ try:
     # Ensure Earth Engine is authenticated. For server-side, this usually means
     # setting up service account credentials or pre-authenticating in the environment.
     # The project ID is crucial for authentication.
-    ee.Initialize(project='unops-gpo-psc-prtnshp-dev')
+    ee_project_id = os.environ.get('EE_PROJECT_ID', 'unops-gpo-psc-prtnshp-dev')
+    ee.Initialize(project=ee_project_id)
     GEE_INITIALIZED = True
 except Exception as e:
     print(f"Earth Engine initialization failed: {e}")

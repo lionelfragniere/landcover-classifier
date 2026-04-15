@@ -4,18 +4,18 @@
 <title>UNOPS Land Cover Classifier</title>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Inter+Tight:wght@600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-<header><img src="{{ url_for('static', filename='../public/unops-logo.png') }}" alt="UNOPS Logo" style="height: 40px; margin-right: 10px;"><h1>🌍 UNOPS Land Cover Classifier</h1><span style="color:#88A0B8;font-size:0.85rem">Powered by GEE + Random Forest</span></header>
+<header><img src="{{ url_for('static', filename='unops-logo.png') }}" alt="UNOPS Logo" class="unops-logo"><h1>🌍 UNOPS Land Cover Classifier</h1><span style="color:#88A0B8;font-size:0.85rem">Powered by GEE + Random Forest</span></header>
 <div class="container">
 <div class="sidebar">
-  <h3 style="color:white;margin-bottom:8px">Analysis Parameters</h3>
-  <p style="color:#88A0B8;font-size:0.8rem">Click on the map to select a point</p>
+  <h3>Analysis Parameters</h3>
+  <p class="muted-text">Click on the map to select a point</p>
   <div class="coords" id="coords">No point selected</div>
   <label>Year</label>
   <select id="year">
@@ -80,7 +80,7 @@ function showResults(data){
   data.classes.forEach((c,i)=>{html+=`<div class="stat-row"><span class="stat-label">${names[i]}</span><span class="stat-value">${c.toFixed(1)}%</span></div>`});
   document.getElementById('stats').innerHTML=html;
   if(chart)chart.destroy();
-  chart=new Chart(document.getElementById('chart'),{type:'pie',data:{labels:names,datasets:[{data:data.classes,backgroundColor:colors}]},options:{plugins:{legend:{labels:{color:'#E0E0E0'}}}}});
+  chart=new Chart(document.getElementById('chart'),{type:'pie',data:{labels:names,datasets:[{data:data.classes,backgroundColor:colors}]},options:{plugins:{legend:{labels:{color:'#0D1E2F'}}}}});
   if(tileLayer)map.removeLayer(tileLayer);
   if(data.tile_url){tileLayer=L.tileLayer(data.tile_url,{opacity:0.6}).addTo(map)}
 }
