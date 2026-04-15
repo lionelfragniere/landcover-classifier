@@ -5,6 +5,8 @@ from flask import Flask, request, jsonify, Response
 
 app = Flask(__name__)
 
+CLASSIFIER = None # Global variable to store the pre-trained classifier
+
 # Initialize Earth Engine
 try:
     # Ensure Earth Engine is authenticated. For server-side, this usually means
@@ -16,6 +18,106 @@ except Exception as e:
     print(f"Earth Engine initialization failed: {e}")
     print("Please ensure your Earth Engine credentials are set up (e.g., via `earthengine authenticate`) and the project ID is correct.")
     GEE_INITIALIZED = False
+
+def _train_classifier():
+    """Trains a Random Forest classifier using ESA WorldCover 2021 as ground truth."""
+    global CLASSIFIER
+    print("Starting classifier training...")
+
+    # Define a broad, representative training geometry (e.g., a region in Europe)
+    # This ensures the classifier learns from diverse land cover types.
+    training_geometry = ee.Geometry.Rectangle([-5.0, 40.0, 10.0, 50.0]) # Example: France/Germany region
+
+    # Load ESA WorldCover 2021 as ground truth
+    worldcover = ee.Image('ESA/WorldCover/v100/2021').select('Map')
+
+    # Filter Sentinel-2 image collection for the training region and year
+    s2_training = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED') \
+        .filterBounds(training_geometry) \
+        .filterDate('2021-01-01', '2021-12-31') \
+        .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 20)) \
+        .median()
+
+    # Calculate spectral indices for training
+    ndvi_training = s2_training.normalizedDifference(['B8', 'B4']).rename('NDVI') # NIR, Red
+    ndwi_training = s2_training.normalizedDifference(['B3', 'B8']).rename('NDWI') # Green, NIR
+    ndbi_training = s2_training.normalizedDifference(['B11', 'B8']).rename('NDBI') # SWIR1, NIR
+
+    # Combine bands and indices for classification
+    bands = ['B2','B3','B4','B8','B11','B12','NDVI','NDWI','NDBI']
+    composite_training = s2_training.select(['B2','B3','B4','B8','B11','B12']).addBands([ndvi_training, ndwi_training, ndbi_training])
+
+    # Combine Sentinel-2 composite with WorldCover labels
+    training_image = composite_training.addBands(worldcover)
+
+    # Define class mapping from WorldCover to simplified 5 classes
+    # 0: Water, 1: Forest, 2: Agriculture, 3: Urban, 4: Barren
+    # WorldCover classes:
+    # 10: Tree cover -> Forest (1)
+    # 20: Shrubland -> Forest (1)
+    # 30: Grassland -> Forest (1)
+    # 40: Cropland -> Agriculture (2)
+    # 50: Vegetated aquatic or regularly flooded -> Water (0)
+    # 60: Moss and lichen -> Barren (4)
+    # 70: Bare / sparse vegetation -> Barren (4)
+    # 80: Built-up -> Urban (3)
+    # 90: Snow and ice -> Barren (4)
+    # 95: Permanent water bodies -> Water (0)
+    # 100: Herbaceous wetland -> Water (0) (Adding this to water for simplicity)
+
+    # Create a remapping expression
+    # Use a list of [old_value, new_value, ...]
+    remapping_list = [
+        10, 1,   # Tree cover -> Forest
+        20, 1,   # Shrubland -> Forest
+        30, 1,   # Grassland -> Forest
+        40, 2,   # Cropland -> Agriculture
+        50, 0,   # Vegetated aquatic or regularly flooded -> Water
+        60, 4,   # Moss and lichen -> Barren
+        70, 4,   # Bare / sparse vegetation -> Barren
+        80, 3,   # Built-up -> Urban
+        90, 4,   # Snow and ice -> Barren
+        95, 0,   # Permanent water bodies -> Water
+        100, 0   # Herbaceous wetland -> Water
+    ]
+    
+    # Apply the remapping to the WorldCover band
+    remapped_worldcover = worldcover.remap(
+        remapping_list[::2], # Old values
+        remapping_list[1::2] # New values
+    ).rename('class')
+
+    # Add the remapped WorldCover to the training image
+    training_image = composite_training.addBands(remapped_worldcover)
+
+    # Sample training points from the combined image
+    # Use a larger scale for sampling to get more diverse pixels
+    training_points = training_image.sample(
+        region=training_geometry,
+        scale=10, # Sentinel-2 resolution
+        numPixels=5000, # Number of training points
+        seed=0,
+        tileScale=8 # Increase tileScale for larger regions
+    ).filter(ee.Filter.neq('class', None)) # Filter out points where WorldCover is No Data
+
+    # Train the Random Forest classifier
+    try:
+        classifier = ee.Classifier.smileRandomForest(numberOfTrees=50).train(
+            features=training_points,
+            classProperty='class',
+            inputProperties=bands
+        )
+        CLASSIFIER = classifier
+        print("Classifier training complete!")
+    except ee.EEException as e:
+        print(f"Earth Engine error during classifier training: {e}")
+        CLASSIFIER = None
+    except Exception as e:
+        print(f"Unexpected error during classifier training: {e}")
+        CLASSIFIER = None
+
+if GEE_INITIALIZED:
+    _train_classifier()
 
 HTML_TEMPLATE = """<!DOCTYPE html>
 <html>
@@ -152,6 +254,9 @@ def classify():
     if lat is None or lng is None:
         return jsonify({"error": "Latitude and Longitude are required."}), 400
 
+    if CLASSIFIER is None:
+        return jsonify({"error": "Classifier not trained. Please check server logs for details."}), 500
+
     try:
         point = ee.Geometry.Point([lng, lat])
         roi = point.buffer(radius)
@@ -170,30 +275,11 @@ def classify():
         ndbi = s2.normalizedDifference(['B11', 'B8']).rename('NDBI') # SWIR1, NIR
         
         # Combine bands and indices for classification
+        bands = ['B2','B3','B4','B8','B11','B12','NDVI','NDWI','NDBI']
         composite = s2.select(['B2','B3','B4','B8','B11','B12']).addBands([ndvi, ndwi, ndbi])
         
-        # Define training data (random points within ROI for simplicity)
-        # In a real-world scenario, these would be carefully selected ground truth points.
-        num_points_per_class = 50 # Reduced for faster processing on smaller ROIs
-        water_pts = ee.FeatureCollection.randomPoints(roi, num_points_per_class).map(lambda f: f.set('class', 0))
-        forest_pts = ee.FeatureCollection.randomPoints(roi, num_points_per_class).map(lambda f: f.set('class', 1))
-        agri_pts = ee.FeatureCollection.randomPoints(roi, num_points_per_class).map(lambda f: f.set('class', 2))
-        urban_pts = ee.FeatureCollection.randomPoints(roi, num_points_per_class).map(lambda f: f.set('class', 3))
-        barren_pts = ee.FeatureCollection.randomPoints(roi, num_points_per_class).map(lambda f: f.set('class', 4))
-        
-        training_pts = water_pts.merge(forest_pts).merge(agri_pts).merge(urban_pts).merge(barren_pts)
-        
-        # Define bands to use for classification
-        bands = ['B2','B3','B4','B8','B11','B12','NDVI','NDWI','NDBI']
-        training = composite.sampleRegions(collection=training_pts, properties=['class'], scale=10) # Sentinel-2 resolution
-        
-        # Train a Random Forest classifier
-        classifier = ee.Classifier.smileRandomForest(numberOfTrees=10).train(
-            features=training, classProperty='class', inputProperties=bands
-        )
-        
-        # Classify the image within the ROI
-        classified = composite.clip(roi).classify(classifier)
+        # Classify the image within the ROI using the pre-trained classifier
+        classified = composite.clip(roi).classify(CLASSIFIER)
         
         # Calculate class percentages
         # The frequencyHistogram reducer returns a dictionary where keys are class values

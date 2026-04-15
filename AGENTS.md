@@ -1,5 +1,8 @@
 ## Changelog
 
+- 2024-07-30: Implemented pre-training for the landcover classifier using ESA WorldCover 2021 as ground truth. The classifier is now trained once on application startup using a diverse geographic region, significantly improving classification accuracy and consistency. The `classify` endpoint now utilizes this pre-trained model, removing the flawed random point training.
+
+
 - 2023-10-27: Implemented UNOPS dark theme with Inter font, primary blue color, and basic styling for header, navigation, and cards. Created Flask app and HTML template to demonstrate the theme.
 - 2023-10-27: Improved Earth Engine error handling and ensured session termination in `ee_classifier.py`.
 - 2023-10-27: Removed interactive `ee.Authenticate()` call from `ee_classifier.py` as it's not suitable for automated environments. Earth Engine authentication must be pre-configured.
