@@ -1,0 +1,6 @@
+flask
+gunicorn
+earthengine-api
+google-auth
+numpy
+scipy
